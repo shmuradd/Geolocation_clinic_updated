@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinic Distance Sorter</title>
+    <script>
+        // Track if user location is fetched
+        let locationFetched = false;
+
+        // Trigger geolocation as soon as the page loads
+        window.onload = function() {
+            getUserLocation();
+        };
+
+        // Get user's current location using the Geolocation API
+        function getUserLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const userLat = position.coords.latitude;
+                        const userLon = position.coords.longitude;
+
+                        // Set latitude and longitude
+                        document.getElementById('userLat').value = userLat;
+                        document.getElementById('userLon').value = userLon;
+                        locationFetched = true;
+
+                        // Display latitude and longitude on the screen
+                        document.getElementById('locationDisplay').innerText = `Latitude: ${userLat}, Longitude: ${userLon}`;
+                    },
+                    error => {
+                        handleLocationError(error);
+                        locationFetched = true;  // We still proceed, even if with default values
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        function handleLocationError(error) {
+            switch (error.code) {
+                case error.PERMISSION_DENIED:
+                    alert("User denied the request for Geolocation. Defaulting to Baku coordinates.");
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    alert("Location information is unavailable. Defaulting to Baku coordinates.");
+                    break;
+                case error.TIMEOUT:
+                    alert("The request to get user location timed out. Defaulting to Baku coordinates.");
+                    break;
+                case error.UNKNOWN_ERROR:
+                    alert("An unknown error occurred. Defaulting to Baku coordinates.");
+                    break;
+            }
+
+            // Default to Baku coordinates
+            document.getElementById('userLat').value = 40.40951792168381;
+            document.getElementById('userLon').value = 49.859110856309854;
+
+            document.getElementById('locationDisplay').innerText = "Latitude: 40.40951792168381, Longitude: 49.859110856309854";
+        }
+
+        // Send a POST request to the Spring Boot backend to sort clinics by distance
+        async function sortClinics() {
+            // Ensure the location is fetched
+            if (!locationFetched) {
+                alert("Fetching location, please wait...");
+                return;
+            }
+
+            const userLat = parseFloat(document.getElementById('userLat').value);
+            const userLon = parseFloat(document.getElementById('userLon').value);
+
+            // Ensure valid lat/lon values are available
+            if (isNaN(userLat) || isNaN(userLon)) {
+                alert("Unable to get user location, try again.");
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:8090/api/clinics/sort', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userLat: userLat,
+                        userLon: userLon
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    alert('Error: ' + errorText);
+                    return;
+                }
+
+                const result = await response.json();
+                displayClinicResults(result);
+            } catch (error) {
+                alert('Failed to send request: ' + error);
+            }
+        }
+
+        // Display the sorted clinics by distance
+        function displayClinicResults(clinics) {
+            const resultsContainer = document.getElementById('clinicResults');
+            resultsContainer.innerHTML = '';  // Clear previous results
+
+            clinics.forEach(clinic => {
+                const div = document.createElement('div');
+                div.innerText = `${clinic.name} - ${clinic.address}: ${clinic.distance.toFixed(2)} km`;
+                resultsContainer.appendChild(div);
+            });
+        }
+    </script>
+</head>
+<body>
+<h1>Sort Clinics by Distance</h1>
+
+<!-- Latitude and Longitude hidden inputs -->
+<input type="hidden" id="userLat">
+<input type="hidden" id="userLon">
+<h2>Your Location:</h2>
+<p id="locationDisplay">Latitude: N/A, Longitude: N/A</p> <!-- Display location here -->
+
+<!-- Button to sort clinics -->
+<button onclick="sortClinics()">Sort Clinics by Distance</button>
+
+<!-- Section to display sorted clinics -->
+<h2>Sorted Clinics:</h2>
+<div id="clinicResults"></div>
+
+</body>
+</html>

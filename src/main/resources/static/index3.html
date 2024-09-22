@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Clinics</title>
+    <script>
+        function handleSearch() {
+            const doctorName = document.getElementById("doctorName").value;
+            const specialty = document.getElementById("specialty").value;
+            const citySelect = document.getElementById("city").value;
+            const city = citySelect === 'geolocation' ? document.getElementById("autoCity").value : citySelect;
+
+            const searchRequest = {
+                doctorName: doctorName,
+                specialty: specialty,
+                city: city
+            };
+
+            fetch("/clinics/search", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(searchRequest)
+            })
+                .then(response => response.json())
+                .then(clinics => {
+                    displayClinics(clinics);
+                });
+        }
+
+        function useGeolocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+
+                    fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`)
+                        .then(response => response.json())
+                        .then(data => {
+                            document.getElementById("autoCity").value = data.city;
+                        });
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        function displayClinics(clinics) {
+            const resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = "";
+            clinics.forEach(clinic => {
+                const clinicInfo = `
+                    <div>
+                        <h3>${clinic.name}</h3>
+                        <p>Doctor: ${clinic.doctorName}</p>
+                        <p>Specialty: ${clinic.specialty}</p>
+                        <p>City: ${clinic.city}</p>
+                    </div>
+                `;
+                resultsDiv.innerHTML += clinicInfo;
+            });
+        }
+    </script>
+</head>
+<body>
+
+<h1>Search Clinics</h1>
+
+<form onsubmit="event.preventDefault(); handleSearch();">
+    <label for="doctorName">Doctor Name:</label>
+    <input type="text" id="doctorName" name="doctorName" required><br>
+
+    <label for="specialty">Specialty:</label>
+    <input type="text" id="specialty" name="specialty" required><br>
+
+    <label for="city">City:</label>
+    <select id="city" name="city" onchange="this.value === 'geolocation' ? useGeolocation() : null">
+        <option value="Baku">Baku</option>
+        <option value="Sumgait">Sumgait</option>
+        <option value="Ganja">Ganja</option>
+        <option value="geolocation">Use My Location</option>
+    </select><br>
+
+    <input type="hidden" id="autoCity" name="autoCity"><br>
+
+    <button type="submit">Search</button>
+</form>
+
+<div id="results"></div>
+
+</body>
+</html>
