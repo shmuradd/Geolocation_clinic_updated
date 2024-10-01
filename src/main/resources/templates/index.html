@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Search</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .search-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            max-width: 900px;
+            margin: 20px auto;
+        }
+
+        .search-input {
+            flex: 1;
+            margin: 0 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .search-btn {
+            background-color: yellow;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .search-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        .doctor-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .doctor-name {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .doctor-qualification {
+            font-size: 14px;
+            color: grey;
+        }
+    </style>
+</head>
+<body onload="requestLocation()">
+
+<div class="search-bar">
+
+
+    <form onsubmit="handleSearch(); return false;">
+        <!-- Doctor's Name Input -->
+        <input type="text" id="doctor-name" name="doctorName" class="search-input" placeholder="Doctor's Name"/>
+
+        <input type="text" id="doctor-specialization" name="specialization" class="search-input" placeholder="Doctor's Specialization"/>
+
+        <input type="text" id="clinic-name" name="clinicname" class="search-input" placeholder="Clinic Name"/>
+
+        <!-- Location Search using Google Maps API -->
+        <input type="text" id="location-input" name="location" class="search-input" placeholder="Enter Location"/>
+        <button type="submit" class="search-btn">
+            <img class="search-icon" src="https://fonts.gstatic.com/s/i/googlematerialicons/search/v6/24px.svg" alt="search-icon">
+        </button>
+    </form>
+
+
+
+
+</div>
+
+
+<!-- Script to handle location access and Google Maps API integration -->
+<script>
+    // Function to request location access on page load
+    function requestLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(showPosition, showError);
+        } else {
+            alert("Geolocation is not supported by this browser.");
+        }
+    }
+
+    // Function to show user's location using Geolocation API
+    function showPosition(position) {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        const locationInput = document.getElementById('location-input');
+
+        // Use Google Maps API Geocode to convert lat/lng to an address (reverse geocoding)
+        const geocoder = new google.maps.Geocoder();
+        const latlng = {lat: latitude, lng: longitude};
+
+        geocoder.geocode({'location': latlng}, (results, status) => {
+            if (status === 'OK') {
+                if (results[0]) {
+                    locationInput.value = results[0].formatted_address;
+                } else {
+                    alert('No results found');
+                }
+            } else {
+                alert('Geocoder failed due to: ' + status);
+            }
+        });
+    }
+
+    // Function to show error if access to location is denied or unavailable
+    function showError(error) {
+        switch (error.code) {
+            case error.PERMISSION_DENIED:
+                alert("User denied the request for Geolocation. Please enter your location manually.");
+                break;
+            case error.POSITION_UNAVAILABLE:
+                alert("Location information is unavailable.");
+                break;
+            case error.TIMEOUT:
+                alert("The request to get user location timed out.");
+                break;
+            case error.UNKNOWN_ERROR:
+                alert("An unknown error occurred.");
+                break;
+        }
+    }
+
+    // Initialize Google Maps API (for location autocomplete and reverse geocoding)
+    function initMap() {
+        const locationInput = document.getElementById('location-input');
+
+        // Restrict to Azerbaijan using componentRestrictions
+        const autocomplete = new google.maps.places.Autocomplete(locationInput, {
+            componentRestrictions: { country: 'az' } // 'az' is the country code for Azerbaijan
+        });
+
+        // Automatically fill in the location input based on selected place from autocomplete
+        autocomplete.addListener('place_changed', () => {
+            const place = autocomplete.getPlace();
+            if (!place.geometry) {
+                alert("No details available for input: '" + place.name + "'");
+            }
+        });
+    }
+
+    // Call this function when the user clicks the search button
+    function handleSearch() {
+        const doctorName = document.getElementById('doctor-name').value;
+        const specialization = document.getElementById('doctor-specialization').value;
+        const location = document.getElementById('location-input').value;
+
+        // Make sure to use form submission here instead of AJAX fetch
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/search';
+
+        form.innerHTML = `
+        <input type="hidden" name="doctorName" value="${doctorName}">
+        <input type="hidden" name="specialization" value="${specialization}">
+        <input type="hidden" name="location" value="${location}">
+    `;
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+</script>
+
+<!-- Google Maps API with Places library -->
+<script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCt-YiA9TJ2hNVuVWbytkAcbqEMga-nGLs&libraries=places&callback=initMap">
+</script>
+
+</body>
+</html>

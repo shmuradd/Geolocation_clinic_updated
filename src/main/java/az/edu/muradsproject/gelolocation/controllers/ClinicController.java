@@ -2,20 +2,17 @@ package az.edu.muradsproject.gelolocation.controllers;
 
 import az.edu.muradsproject.gelolocation.dto.ClinicDto;
 import az.edu.muradsproject.gelolocation.dto.ClinicSearchRequest;
-import az.edu.muradsproject.gelolocation.models.AddressDistance;
-import az.edu.muradsproject.gelolocation.models.AddressInput;
 import az.edu.muradsproject.gelolocation.services.ClinicService;
 import az.edu.muradsproject.gelolocation.services.DoctorService;
+import az.edu.muradsproject.gelolocation.services.GeocodingService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Comparator;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/clinics")
+@RequestMapping("/api")
 public class ClinicController {
 
     @Autowired
@@ -23,13 +20,11 @@ public class ClinicController {
 
     @Autowired
     private DoctorService doctorService;
+    @Autowired
+    private GeocodingService geocodingService;
+    @Autowired
+    private LocationController locationController; // Inject the LocationController
 
-
-    @PostMapping("/search")
-    public ResponseEntity<List<ClinicDto>> searchClinics(@RequestBody ClinicSearchRequest searchRequest) {
-        List<ClinicDto> clinics = clinicService.searchClinicsByDoctorAndCity(searchRequest);
-        return ResponseEntity.ok(clinics);
-    }
 
     @GetMapping("/getall")
     public ResponseEntity<List<ClinicDto>> getAllClinics() {
@@ -43,40 +38,21 @@ public class ClinicController {
         return ResponseEntity.ok(clinics);
     }
 
-    @PostMapping("/sort")
-    public List<ClinicDto> sortClinicsByDistance(@RequestBody AddressInput addressInput) {
-        // Get the list of clinics (assuming this is how you're retrieving clinics)
-        List<ClinicDto> clinics = clinicService.getClinics();
 
-        // Get user's latitude and longitude (if available)
-        double userLat = addressInput.getUserLat();
-        double userLon = addressInput.getUserLon();
 
-        // If geolocation is denied or not available, use default coordinates
-        if (userLat == 0 && userLon == 0) {
-            // Fallback to a default location (e.g., center of the city)
-            userLat = 40.40982397041654; // Example default: Baku's latitude
-            userLon = 49.87154756154538; // Example default: Baku's longitude
-        }
-        // Process each ClinicDto's address (Google Maps link) and calculate the distance
-        for (ClinicDto clinic : clinics) {
-            String googleMapsLink = clinic.getAddress(); // Assuming address contains the Google Maps link
-            String[] coordinates = clinicService.extractCoordinatesFromGoogleMapsLink(googleMapsLink);
-            if (coordinates != null) {
-                double clinicLat = Double.parseDouble(coordinates[0]);
-                double clinicLon = Double.parseDouble(coordinates[1]);
+    @PostMapping("/search")
+    public ResponseEntity<List<ClinicDto>> searchDoctors(@RequestBody ClinicSearchRequest searchRequest) {
+        // Call the service to perform the search and sort clinics by distance
+        List<ClinicDto> clinics = clinicService.searchClinicsByDoctorAndCity(searchRequest);
 
-                // Calculate distance using a helper method (e.g., Haversine formula)
-                double distance =clinicService.calculateDistance(userLat, userLon, clinicLat, clinicLon);
-
-                // Set the distance in ClinicDto
-                clinic.setDistance(distance);
-            }
-        }
-
-        // Sort clinics by distance
-        clinics.sort(Comparator.comparingDouble(ClinicDto::getDistance));
-
-        return clinics;
+        // Return the sorted list of clinics
+        return ResponseEntity.ok(clinics);
     }
+
+
+
+
+
+
+
 }

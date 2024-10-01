@@ -1,79 +1,105 @@
 package az.edu.muradsproject.gelolocation.controllers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
-import az.edu.muradsproject.gelolocation.helpers.GoogleMapHelper;
-import az.edu.muradsproject.gelolocation.models.AddressDistance;
-import az.edu.muradsproject.gelolocation.models.AddressInput;
+import com.google.maps.GeoApiContext;
+import com.google.maps.GeocodingApi;
+import com.google.maps.model.GeocodingResult;
+
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @RestController
-@RequestMapping("/api/locations")
+@RequestMapping("/api")
 public class LocationController {
 
-    @PostMapping("/sort")
-    public List<AddressDistance> sortAddresses(@RequestBody AddressInput addressInput) {
-        List<AddressDistance> addressDistances = new ArrayList<>();
+    private final GeoApiContext geoApiContext;
 
-        // Get user's latitude and longitude (if available)
-        double userLat = addressInput.getUserLat();
-        double userLon = addressInput.getUserLon();
+    public LocationController() {
+        this.geoApiContext = new GeoApiContext.Builder()
+                .apiKey("AIzaSyCt-YiA9TJ2hNVuVWbytkAcbqEMga-nGLs") // Replace with your API key
+                .build();
+    }
 
-        // If geolocation is denied or not available, use default coordinates
-        if (userLat == 0 && userLon == 0) {
-            // Fallback to a default location (e.g., center of the city)
-            userLat = 40.4093; // Example default: Baku's latitude
-            userLon = 49.8671; // Example default: Baku's longitude
+    // Request body class for location
+    public static class LocationRequest {
+        @JsonProperty("location")
+        private String location;
+
+        public String getLocation() {
+            return location;
         }
 
-        // Process each Google Maps link
-        addAddressDistance(addressDistances, addressInput.getAddressLink1(), userLat, userLon);
-        addAddressDistance(addressDistances, addressInput.getAddressLink2(), userLat, userLon);
-        addAddressDistance(addressDistances, addressInput.getAddressLink3(), userLat, userLon);
-
-        // Sort by distance
-        addressDistances.sort(Comparator.comparingDouble(AddressDistance::getDistance));
-
-        return addressDistances;
+        public void setLocation(String location) {
+            this.location = location;
+        }
     }
 
-    private void addAddressDistance(List<AddressDistance> addressDistances, String googleMapsLink, double userLat, double userLon) {
-        String[] coordinates = extractCoordinatesFromGoogleMapsLink(googleMapsLink);
-        double clinicLat = Double.parseDouble(coordinates[0]);
-        double clinicLon = Double.parseDouble(coordinates[1]);
-        double distance = calculateDistance(userLat, userLon, clinicLat, clinicLon);
-        addressDistances.add(new AddressDistance(googleMapsLink, distance));
+    // API endpoint to get coordinates
+    @PostMapping("/get-coordinates")
+    public CoordinatesResponse getCoordinates(@RequestBody LocationRequest request) {
+        String location = request.getLocation();
+        CoordinatesResponse response = new CoordinatesResponse();
+
+        try {
+            GeocodingResult[] results = GeocodingApi.geocode(geoApiContext, location).await();
+            if (results.length > 0) {
+                response.setLatitude(results[0].geometry.location.lat);
+                response.setLongitude(results[0].geometry.location.lng);
+                response.setAddress(results[0].formattedAddress);
+            } else {
+                response.setError("No results found for this location.");
+            }
+        } catch (Exception e) {
+            response.setError("Error retrieving location: " + e.getMessage());
+        }
+
+        return response;
     }
 
-    public double calculateDistance(double userLat, double userLon, double clinicLat, double clinicLon) {
-        final int R = 6371; // Radius of the Earth in kilometers
+    // Response class for coordinates
+    public static class CoordinatesResponse {
+        private double latitude;
+        private double longitude;
+        private String address;
+        private String error;
 
-        // Convert degrees to radians
-        double latDistance = Math.toRadians(clinicLat - userLat);
-        double lonDistance = Math.toRadians(clinicLon - userLon);
+        // Getters and Setters
+        public double getLatitude() {
+            return latitude;
+        }
 
-        // Apply the Haversine formula
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2) +
-                Math.cos(Math.toRadians(userLat)) * Math.cos(Math.toRadians(clinicLat)) *
-                        Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        public void setLatitude(double latitude) {
+            this.latitude = latitude;
+        }
 
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        public double getLongitude() {
+            return longitude;
+        }
 
-        // Distance in kilometers
-        double distance = R * c;
+        public void setLongitude(double longitude) {
+            this.longitude = longitude;
+        }
 
-        return distance;
-    }
+        public String getAddress() {
+            return address;
+        }
 
+        public void setAddress(String address) {
+            this.address = address;
+        }
 
-    private String[] extractCoordinatesFromGoogleMapsLink(String googleMapsLink) {
-        String[] coordinatesList = new String[2];
-        String[] longLat = GoogleMapHelper.getLongLatFromGoogleMapLink(googleMapsLink);
-        // Assuming longLat has the format: {latitude, longitude}
-        coordinatesList[0] = longLat[0];
-        coordinatesList[1] = longLat[1];
-        return coordinatesList;
+        public String getError() {
+            return error;
+        }
+
+        public void setError(String error) {
+            this.error = error;
+        }
     }
 }

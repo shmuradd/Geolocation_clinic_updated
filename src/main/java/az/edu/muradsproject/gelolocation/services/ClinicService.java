@@ -10,8 +10,7 @@ public interface ClinicService {
     //return clinics by doctorId
     public List<ClinicDto> getClinicsByDoctorId(Long doctorId);
     public String getCityNameByClinicId(Long clinicId);
-    public List<ClinicDto> searchClinicsByDoctorAndCity(ClinicSearchRequest clinicSearchRequest);
-    public List<ClinicDto> getClinics();
+    public List<ClinicDto> searchClinicsByDoctorAndCity(ClinicSearchRequest searchRequest);public List<ClinicDto> getClinics();
     public String[] extractCoordinatesFromGoogleMapsLink(String googleMapsLink);
     public double calculateDistance(double userLat, double userLon, double clinicLat, double clinicLon);
     public ClinicDto convertToDto(Clinic clinic);

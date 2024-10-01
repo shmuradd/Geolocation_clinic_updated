@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Finder</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCt-YiA9TJ2hNVuVWbytkAcbqEMga-nGLs&libraries=places"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input[type="text"] {
+            width: 300px;
+            padding: 10px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+<h1>Location Finder</h1>
+<form id="locationForm" action="/get-coordinates" method="POST" onsubmit="return submitForm();">
+    <input type="text" id="locationInput" name="location" placeholder="Enter a location" required>
+    <button type="submit">Get Coordinates</button>
+</form>
+
+<h3 id="result"></h3>
+
+<script>
+    function initAutocomplete() {
+        const input = document.getElementById('locationInput');
+        const autocomplete = new google.maps.places.Autocomplete(input);
+    }
+
+    function submitForm() {
+        const input = document.getElementById('locationInput').value;
+        const geocoder = new google.maps.Geocoder();
+
+        geocoder.geocode({ address: input }, (results, status) => {
+            if (status === 'OK') {
+                // Set the location value before submitting
+                document.getElementById('locationInput').value = input;
+                document.getElementById('locationForm').submit(); // Submit form here
+            } else {
+                alert('Location not found');
+            }
+        });
+        return false; // Prevent the form from submitting until we handle it
+    }
+
+
+    google.maps.event.addDomListener(window, 'load', initAutocomplete);
+</script>
+</body>
+</html>

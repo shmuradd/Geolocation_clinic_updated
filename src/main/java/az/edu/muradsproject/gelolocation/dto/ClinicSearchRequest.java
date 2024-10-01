@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ClinicSearchRequest {
     private String doctorName;
-    private String specialty;
-    private String city;
+    private String specialization;
+    private String location;
+    private String clinicName;
 }
