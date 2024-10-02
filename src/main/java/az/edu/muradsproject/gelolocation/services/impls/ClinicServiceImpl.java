@@ -3,6 +3,7 @@ package az.edu.muradsproject.gelolocation.services.impls;
 import az.edu.muradsproject.gelolocation.controllers.LocationController;
 import az.edu.muradsproject.gelolocation.dto.ClinicDto;
 import az.edu.muradsproject.gelolocation.dto.ClinicSearchRequest;
+import az.edu.muradsproject.gelolocation.dto.DoctorDto;
 import az.edu.muradsproject.gelolocation.helpers.GoogleMapHelper;
 import az.edu.muradsproject.gelolocation.models.Clinic;
 import az.edu.muradsproject.gelolocation.models.Doctor;
@@ -78,63 +79,102 @@ public class ClinicServiceImpl implements ClinicService {
         return clinics;
     }
 
-    @Override
-    public List<ClinicDto> searchClinicsByDoctorAndCity(ClinicSearchRequest searchRequest) {
-        // Step 1: Find doctors matching the given name and specialization
-        List<Doctor> doctors = doctorRepository.findByNameContainingIgnoreCaseAndSpecialtyContainingIgnoreCase(
-                searchRequest.getDoctorName(),
-                searchRequest.getSpecialization()
-        );
-
-        // Step 2: Find clinics associated with these doctors that match the given clinic name
-        Set<Clinic> clinics = new HashSet<>();
-        for (Doctor doctor : doctors) {
-            clinics.addAll(doctor.getClinics().stream()
-                    .filter(clinic -> searchRequest.getClinicName() == null || clinic.getName().equalsIgnoreCase(searchRequest.getClinicName()))
-                    .collect(Collectors.toList()));
-        }
-
-        // Step 3: Convert Clinic entities to ClinicDto
-        List<ClinicDto> clinicDtos = clinics.stream()
+    // Convert a Doctor entity to DoctorDto
+    private DoctorDto convertDoctorToDto(Doctor doctor) {
+        DoctorDto doctorDto = new DoctorDto();
+        doctorDto.setClinics(doctor.getClinics().stream()
                 .map(this::convertToDto)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()));
+        doctorDto.setExperience(doctor.getExperience());
+        doctor.setPhotoUrl(doctor.getPhotoUrl());
+        doctorDto.setName(doctor.getName());
+        doctorDto.setSpecialty(doctor.getSpecialty());
+        doctorDto.setQualifications(doctor.getQualifications());
+        // Add any additional fields as required
+        return doctorDto;
+    }
 
-        // Step 4: Extract coordinates for the provided location
-        LocationController.LocationRequest request = new LocationController.LocationRequest();
-        request.setLocation(searchRequest.getLocation());
+    @Override
+    public List<DoctorDto> searchClinicsByDoctorAndCity(ClinicSearchRequest searchRequest) {
+        // Step 1: Search for doctors by name first
+        List<Doctor> doctors = doctorRepository.findByNameContainingIgnoreCase(searchRequest.getDoctorName());
 
-        LocationController.CoordinatesResponse coordinatesResponse = locationController.getCoordinates(request);
-
-        double userLat = coordinatesResponse != null ? coordinatesResponse.getLatitude() : 0;
-        double userLon = coordinatesResponse != null ? coordinatesResponse.getLongitude() : 0;
-
-        // Fallback to default coordinates for Baku if location is not found or invalid
-        if (coordinatesResponse == null || (userLat == 0 && userLon == 0)) {
-            userLat = 40.40982397041654; // Default latitude
-            userLon = 49.87154756154538; // Default longitude
+        // Step 2: Filter by specialization if provided
+        if (isNotEmpty(searchRequest.getSpecialization())) {
+            doctors = doctors.stream()
+                    .filter(doctor -> doctor.getSpecialty().equalsIgnoreCase(searchRequest.getSpecialization()))
+                    .collect(Collectors.toList());
         }
 
-        // Step 5: Calculate distance for each clinic and set the distance value in the DTO
-        for (ClinicDto clinicDto : clinicDtos) {
-            String googleMapsLink = clinicDto.getAddress();
-            String[] coordinates = extractCoordinatesFromGoogleMapsLink(googleMapsLink);
-            if (coordinates != null && coordinates.length == 2) {
-                try {
-                    double clinicLat = Double.parseDouble(coordinates[0]);
-                    double clinicLon = Double.parseDouble(coordinates[1]);
-                    double distance = calculateDistance(userLat, userLon, clinicLat, clinicLon);
-                    clinicDto.setDistance(distance);
-                } catch (NumberFormatException e) {
-                    // Log error or handle incorrect format gracefully
+        // Step 3: Filter doctors by clinic name if provided
+        Set<Doctor> filteredDoctors = new HashSet<>();
+        if (isNotEmpty(searchRequest.getClinicName())) {
+            for (Doctor doctor : doctors) {
+                if (doctor.getClinics().stream()
+                        .anyMatch(clinic -> clinic.getName().equalsIgnoreCase(searchRequest.getClinicName()))) {
+                    filteredDoctors.add(doctor);
                 }
             }
+        } else {
+            // If no clinic name is provided, keep all filtered doctors
+            filteredDoctors.addAll(doctors);
         }
 
-        // Step 6: Sort clinics by distance
-        clinicDtos.sort(Comparator.comparingDouble(ClinicDto::getDistance));
+        // Step 4: Convert the filtered doctors to DoctorDto and associated clinics to ClinicDto
+        List<DoctorDto> doctorDtos = filteredDoctors.stream()
+                .map(doctor -> {
+                    DoctorDto doctorDto = convertDoctorToDto(doctor);
+                    List<ClinicDto> clinicDtos = doctor.getClinics().stream()
+                            .map(this::convertToDto)
+                            .collect(Collectors.toList());
 
-        return clinicDtos;
+                    // Step 5: Calculate distance for each clinic and set the distance value in the ClinicDto
+                    LocationController.LocationRequest request = new LocationController.LocationRequest();
+                    request.setLocation(searchRequest.getLocation());
+                    LocationController.CoordinatesResponse coordinatesResponse = locationController.getCoordinates(request);
+
+                    double userLat = coordinatesResponse != null ? coordinatesResponse.getLatitude() : 0;
+                    double userLon = coordinatesResponse != null ? coordinatesResponse.getLongitude() : 0;
+
+                    // Fallback to default coordinates for Baku if location is not found or invalid
+                    if (coordinatesResponse == null || (userLat == 0 && userLon == 0)) {
+                        userLat = 40.40982397041654; // Default latitude
+                        userLon = 49.87154756154538; // Default longitude
+                    }
+
+                    // Calculate distance for each clinic and set the distance in the ClinicDto
+                    for (ClinicDto clinicDto : clinicDtos) {
+                        String googleMapsLink = clinicDto.getAddress();
+                        String[] coordinates = extractCoordinatesFromGoogleMapsLink(googleMapsLink);
+                        if (coordinates != null && coordinates.length == 2) {
+                            try {
+                                double clinicLat = Double.parseDouble(coordinates[0]);
+                                double clinicLon = Double.parseDouble(coordinates[1]);
+                                double distance = calculateDistance(userLat, userLon, clinicLat, clinicLon);
+                                clinicDto.setDistance(distance);
+                            } catch (NumberFormatException e) {
+                                // Handle incorrect coordinate format gracefully
+                            }
+                        }
+                    }
+
+                    // Sort clinics by distance for each doctor
+                    clinicDtos.sort(Comparator.comparingDouble(ClinicDto::getDistance));
+                    doctorDto.setClinics(clinicDtos);  // Set the list of clinics with distance
+
+                    return doctorDto;
+                })
+                .collect(Collectors.toList());
+
+        // Step 6: Return the list of DoctorDto with their associated clinics
+        return doctorDtos;
     }
+
+    // Helper method to check if a string is not null and not empty
+    private boolean isNotEmpty(String str) {
+        return str != null && !str.trim().isEmpty();
+    }
+
 
 
     @Override

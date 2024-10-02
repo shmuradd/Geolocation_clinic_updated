@@ -2,6 +2,7 @@ package az.edu.muradsproject.gelolocation.controllers;
 
 import az.edu.muradsproject.gelolocation.dto.ClinicDto;
 import az.edu.muradsproject.gelolocation.dto.ClinicSearchRequest;
+import az.edu.muradsproject.gelolocation.dto.DoctorDto;
 import az.edu.muradsproject.gelolocation.services.ClinicService;
 import az.edu.muradsproject.gelolocation.services.DoctorService;
 import az.edu.muradsproject.gelolocation.services.GeocodingService;
@@ -41,12 +42,12 @@ public class ClinicController {
 
 
     @PostMapping("/search")
-    public ResponseEntity<List<ClinicDto>> searchDoctors(@RequestBody ClinicSearchRequest searchRequest) {
+    public ResponseEntity<List<DoctorDto>> searchDoctors(@RequestBody ClinicSearchRequest searchRequest) {
         // Call the service to perform the search and sort clinics by distance
-        List<ClinicDto> clinics = clinicService.searchClinicsByDoctorAndCity(searchRequest);
+        List<DoctorDto> doctors = clinicService.searchClinicsByDoctorAndCity(searchRequest);
 
         // Return the sorted list of clinics
-        return ResponseEntity.ok(clinics);
+        return ResponseEntity.ok(doctors);
     }
 
 
