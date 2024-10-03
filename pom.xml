@@ -33,7 +33,9 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
+            <version>20210307</version> <!-- You need to add this line -->
         </dependency>
+
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -72,8 +74,10 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <scope>annotationProcessor</scope>
+            <version>1.18.24</version>
+            <scope>provided</scope> <!-- Lombok is often set to 'provided' -->
         </dependency>
+
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
